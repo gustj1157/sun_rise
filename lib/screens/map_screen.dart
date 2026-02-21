@@ -9,7 +9,10 @@ import '../services/location_service.dart';
 import '../widgets/cloud_overlay.dart';
 import '../widgets/day_night_overlay.dart';
 import '../widgets/spot_detail_sheet.dart';
+import '../widgets/star_overlay.dart';
+import '../widgets/sun_moon_animation.dart';
 import '../widgets/timelapse_overlay.dart';
+import '../widgets/top_info_bar.dart';
 import '../widgets/weekly_recommendation.dart';
 
 class MapScreen extends StatefulWidget {
@@ -22,7 +25,7 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _mapController;
   final LocationService _locationService = LocationService();
-  double _currentZoom = 7.0;
+  double _currentZoom = 11.0;
   bool _showRecommendation = false;
   bool _showTimelapse = false;
 
@@ -66,8 +69,8 @@ class _MapScreenState extends State<MapScreen> {
 
   void _onCameraMove(CameraPosition position) {
     final newZoom = position.zoom;
-    // Only update markers if zoom crossed the label threshold
-    if ((_currentZoom < 9 && newZoom >= 9) || (_currentZoom >= 9 && newZoom < 9)) {
+    if ((_currentZoom < 9 && newZoom >= 9) ||
+        (_currentZoom >= 9 && newZoom < 9)) {
       _currentZoom = newZoom;
       context.read<SpotsProvider>().updateMarkersForZoom(newZoom);
     }
@@ -78,12 +81,12 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wb_sunny, color: Colors.orange, size: 22),
-            SizedBox(width: 8),
-            Text(
+            Icon(Icons.wb_sunny_rounded, color: AppTheme.sunriseOrange, size: 22),
+            const SizedBox(width: 8),
+            const Text(
               'SunTime',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
@@ -164,7 +167,7 @@ class _MapScreenState extends State<MapScreen> {
                 },
               ),
 
-              // (2) Day/Night overlay
+              // (2) Day/Night gradient overlay
               const Positioned.fill(
                 child: DayNightOverlay(),
               ),
@@ -174,28 +177,56 @@ class _MapScreenState extends State<MapScreen> {
                 child: CloudOverlay(),
               ),
 
-              // (4) Timelapse controls
+              // (4) Star overlay (night only)
+              const Positioned.fill(
+                child: StarOverlay(),
+              ),
+
+              // (5) Sun/Moon animation (top area)
+              const Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 100,
+                child: IgnorePointer(child: SunMoonAnimation()),
+              ),
+
+              // (6) Top info bar
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 8,
+                child: const TopInfoBar(),
+              ),
+
+              // (7) Timelapse controls
               if (_showTimelapse && spotsProvider.selectedSpot != null)
                 Positioned(
-                  left: 0, right: 0,
-                  top: MediaQuery.of(context).padding.top + 8,
+                  left: 0,
+                  right: 0,
+                  top: 56,
                   child: TimelapseOverlay(
                     spot: spotsProvider.selectedSpot!,
                     onClose: () => setState(() => _showTimelapse = false),
                   ),
                 ),
 
-              // (5) Bottom: recommendation, detail sheet, or filter bar
+              // (8) Bottom: recommendation, detail sheet, or filter bar
               if (_showRecommendation)
                 Positioned(
-                  left: 0, right: 0, bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: WeeklyRecommendation(
-                    onSpotTap: () => setState(() => _showRecommendation = false),
+                    onSpotTap: () =>
+                        setState(() => _showRecommendation = false),
                   ),
                 )
               else if (spotsProvider.selectedSpot != null)
                 Positioned(
-                  left: 0, right: 0, bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: SpotDetailSheet(
                     spot: spotsProvider.selectedSpot!,
                     onClose: () => spotsProvider.clearSelection(),
@@ -203,7 +234,9 @@ class _MapScreenState extends State<MapScreen> {
                 )
               else
                 Positioned(
-                  left: 0, right: 0, bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: _buildFilterBar(spotsProvider),
                 ),
             ],
@@ -230,30 +263,29 @@ class _MapScreenState extends State<MapScreen> {
       child: Row(
         children: [
           _buildFilterChip(
-            icon: Icons.wb_sunny,
+            icon: Icons.wb_sunny_rounded,
             label: '일출',
-            type: SpotType.sunrise,
-            color: Colors.orange,
+            color: AppTheme.sunriseOrange,
             isActive: provider.activeFilters.contains(SpotType.sunrise),
-            count: provider.spots.where((s) => s.type == SpotType.sunrise).length,
+            count:
+                provider.spots.where((s) => s.type == SpotType.sunrise).length,
             onTap: () => provider.toggleFilter(SpotType.sunrise),
           ),
           const SizedBox(width: 8),
           _buildFilterChip(
-            icon: Icons.nights_stay,
+            icon: Icons.nightlight_round,
             label: '일몰',
-            type: SpotType.sunset,
-            color: Colors.deepPurple,
+            color: AppTheme.sunsetPurple,
             isActive: provider.activeFilters.contains(SpotType.sunset),
-            count: provider.spots.where((s) => s.type == SpotType.sunset).length,
+            count:
+                provider.spots.where((s) => s.type == SpotType.sunset).length,
             onTap: () => provider.toggleFilter(SpotType.sunset),
           ),
           const SizedBox(width: 8),
           _buildFilterChip(
-            icon: Icons.brightness_6,
+            icon: Icons.star_rounded,
             label: '둘다',
-            type: SpotType.both,
-            color: Colors.amber,
+            color: AppTheme.sunriseGold,
             isActive: provider.activeFilters.contains(SpotType.both),
             count: provider.spots.where((s) => s.type == SpotType.both).length,
             onTap: () => provider.toggleFilter(SpotType.both),
@@ -275,7 +307,6 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildFilterChip({
     required IconData icon,
     required String label,
-    required SpotType type,
     required Color color,
     required bool isActive,
     required int count,

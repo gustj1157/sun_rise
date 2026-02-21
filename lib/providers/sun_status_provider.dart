@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../utils/kst_time_helper.dart';
 import '../utils/sun_calculator.dart';
 
 class SunStatusProvider extends ChangeNotifier {
@@ -14,6 +15,15 @@ class SunStatusProvider extends ChangeNotifier {
   double get sunLatitude => _sunLatitude;
   LatLngBounds? get visibleBounds => _visibleBounds;
   bool get isSimulating => _simulatedTime != null;
+
+  DateTime get currentKst {
+    final utc = _simulatedTime ?? DateTime.now().toUtc();
+    return utc.add(const Duration(hours: 9));
+  }
+
+  SunPeriod get currentPeriod => KstTimeHelper.getSunPeriod(currentKst.hour);
+
+  double get periodProgress => KstTimeHelper.getPeriodProgress(currentKst);
 
   SunStatusProvider() {
     _updateSunPosition();

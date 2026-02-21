@@ -100,38 +100,26 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[600],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // 사진 영역
+          // Hero 사진 영역 + 그라데이션 오버레이
           if (widget.spot.displayPhotoUrls.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              height: 160,
+            SizedBox(
+              height: 200,
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                     child: GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -144,7 +132,7 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                       child: CachedNetworkImage(
                         imageUrl: widget.spot.displayPhotoUrls[_currentPhotoIndex],
                         width: double.infinity,
-                        height: 160,
+                        height: 200,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
                           color: Colors.grey[800],
@@ -159,6 +147,85 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                       ),
                     ),
                   ),
+                  // 그라데이션 오버레이
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.7),
+                          ],
+                          stops: const [0.4, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 명소 이름 (사진 위)
+                  Positioned(
+                    left: 16, bottom: 12, right: 60,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(widget.spot.typeIcon, color: widget.spot.typeColor, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                widget.spot.name,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  shadows: [Shadow(blurRadius: 8, color: Colors.black54)],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.spot.description,
+                          style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.8)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 닫기 버튼
+                  Positioned(
+                    right: 12, top: 12,
+                    child: GestureDetector(
+                      onTap: widget.onClose,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                  // 드래그 핸들
+                  Positioned(
+                    top: 8, left: 0, right: 0,
+                    child: Center(
+                      child: Container(
+                        width: 40, height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 좌우 네비게이션
                   if (widget.spot.displayPhotoUrls.length > 1)
                     Positioned(
                       left: 8, top: 0, bottom: 0,
@@ -166,12 +233,12 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                         child: GestureDetector(
                           onTap: _prevPhoto,
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
+                              color: Colors.black.withValues(alpha: 0.4),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.chevron_left, color: Colors.white, size: 20),
+                            child: const Icon(Icons.chevron_left, color: Colors.white, size: 18),
                           ),
                         ),
                       ),
@@ -183,29 +250,32 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                         child: GestureDetector(
                           onTap: _nextPhoto,
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
+                              color: Colors.black.withValues(alpha: 0.4),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.chevron_right, color: Colors.white, size: 20),
+                            child: const Icon(Icons.chevron_right, color: Colors.white, size: 18),
                           ),
                         ),
                       ),
                     ),
+                  // 페이지 인디케이터
                   if (widget.spot.displayPhotoUrls.length > 1)
                     Positioned(
-                      bottom: 8, left: 0, right: 0,
+                      bottom: 40, left: 0, right: 0,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(widget.spot.displayPhotoUrls.length, (index) {
-                          return Container(
+                          final isActive = index == _currentPhotoIndex;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
                             margin: const EdgeInsets.symmetric(horizontal: 3),
-                            width: index == _currentPhotoIndex ? 8 : 6,
-                            height: index == _currentPhotoIndex ? 8 : 6,
+                            width: isActive ? 16 : 6,
+                            height: 6,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: index == _currentPhotoIndex
+                              borderRadius: BorderRadius.circular(3),
+                              color: isActive
                                   ? widget.spot.typeColor
                                   : Colors.white.withValues(alpha: 0.5),
                             ),
@@ -215,6 +285,16 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                     ),
                 ],
               ),
+            )
+          else
+            // 사진 없을 때 드래그 핸들
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[600],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
 
           Padding(
@@ -222,36 +302,7 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 이름 + 설명
-                Row(
-                  children: [
-                    Icon(widget.spot.typeIcon, color: widget.spot.typeColor, size: 24),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.spot.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.spot.description,
-                            style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 4),
 
                 // 오늘 추천도 + 구름량
                 _buildRecommendationRow(),
@@ -298,43 +349,39 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                 ),
                 const SizedBox(height: 12),
 
-                // 버튼
+                // 이모지 버튼
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showNavigationDialog(context),
-                        icon: const Icon(Icons.directions, size: 16),
-                        label: const Text('길찾기'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                          side: const BorderSide(color: Colors.white24),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
+                      child: _buildEmojiButton(
+                        emoji: '\u{1F697}',
+                        label: '길찾기',
+                        onTap: () => _showNavigationDialog(context),
+                        bgColor: Colors.blue.withValues(alpha: 0.15),
+                        textColor: Colors.blue[200]!,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
+                      child: _buildEmojiButton(
+                        emoji: '\u{1F9ED}',
+                        label: '나침반',
+                        onTap: () {
                           showDialog(
                             context: context,
                             builder: (_) => SunCompass(spot: widget.spot),
                           );
                         },
-                        icon: const Icon(Icons.explore, size: 16),
-                        label: const Text('나침반'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.orange,
-                          side: BorderSide(color: Colors.orange.withValues(alpha: 0.3)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
+                        bgColor: const Color(0xFFFF9500).withValues(alpha: 0.15),
+                        textColor: const Color(0xFFFF9500),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: widget.spot.displayPhotoUrls.isEmpty
+                      child: _buildEmojiButton(
+                        emoji: '\u{1F4F8}',
+                        label: '사진',
+                        onTap: widget.spot.displayPhotoUrls.isEmpty
                             ? null
                             : () {
                                 Navigator.push(
@@ -344,13 +391,8 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
                                   ),
                                 );
                               },
-                        icon: const Icon(Icons.photo_camera, size: 16),
-                        label: const Text('사진'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: widget.spot.typeColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
+                        bgColor: widget.spot.typeColor.withValues(alpha: 0.2),
+                        textColor: widget.spot.typeColor,
                       ),
                     ),
                   ],
@@ -850,6 +892,40 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
     );
   }
 
+  Widget _buildEmojiButton({
+    required String emoji,
+    required String label,
+    VoidCallback? onTap,
+    required Color bgColor,
+    required Color textColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: onTap != null ? textColor : Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTimeChip({
     required IconData icon,
     required String label,
@@ -874,7 +950,7 @@ class _SpotDetailSheetState extends State<SpotDetailSheet> {
               Text(
                 time,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),

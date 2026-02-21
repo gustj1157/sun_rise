@@ -37,11 +37,11 @@ class SpotData {
   Color get typeColor {
     switch (type) {
       case SpotType.sunrise:
-        return Colors.orange;
+        return const Color(0xFFFF9500);
       case SpotType.sunset:
-        return Colors.deepPurple;
+        return const Color(0xFF8B5CF6);
       case SpotType.both:
-        return Colors.amber;
+        return const Color(0xFFFFD700);
     }
   }
 

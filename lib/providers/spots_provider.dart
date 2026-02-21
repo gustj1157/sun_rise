@@ -20,11 +20,15 @@ class SpotsProvider extends ChangeNotifier {
   SpotData? _selectedSpot;
   Position? _userLocation;
 
-  // Filter state
-  Set<SpotType> _activeFilters = {SpotType.sunrise, SpotType.sunset, SpotType.both};
-  bool _showLabels = false; // zoom >= 9 shows labels
+  Set<SpotType> _activeFilters = {
+    SpotType.sunrise,
+    SpotType.sunset,
+    SpotType.both,
+  };
+  bool _showLabels = false;
   Map<String, GeneratedMarker> _generatedWithLabels = {};
   Map<String, GeneratedMarker> _generatedWithoutLabels = {};
+  Map<String, GeneratedMarker> _generatedSelected = {};
 
   List<SpotData> get spots => _spots;
   Set<Marker> get markers => _markers;
@@ -46,9 +50,12 @@ class SpotsProvider extends ChangeNotifier {
         await Future.delayed(const Duration(seconds: 2));
       }
 
-      // Generate both sets of markers (with and without labels)
-      _generatedWithoutLabels = await _markerService.generateAllMarkers(_spots, showLabels: false);
-      _generatedWithLabels = await _markerService.generateAllMarkers(_spots, showLabels: true);
+      _generatedWithoutLabels =
+          await _markerService.generateAllMarkers(_spots, showLabels: false);
+      _generatedWithLabels =
+          await _markerService.generateAllMarkers(_spots, showLabels: true);
+      _generatedSelected =
+          await _markerService.generateSelectedMarkers(_spots);
 
       _rebuildMarkers();
 
@@ -68,11 +75,17 @@ class SpotsProvider extends ChangeNotifier {
   }
 
   void _rebuildMarkers() {
-    final markerMap = _showLabels ? _generatedWithLabels : _generatedWithoutLabels;
-    final visibleSpots = _spots.where((s) => _activeFilters.contains(s.type));
+    final markerMap =
+        _showLabels ? _generatedWithLabels : _generatedWithoutLabels;
+    final visibleSpots =
+        _spots.where((s) => _activeFilters.contains(s.type));
 
     _markers = visibleSpots.map((spot) {
-      final gm = markerMap[spot.name];
+      final isSelected = spot.name == _selectedSpot?.name;
+      final gm = isSelected
+          ? (_generatedSelected[spot.name] ?? markerMap[spot.name])
+          : markerMap[spot.name];
+
       return Marker(
         markerId: MarkerId(spot.name),
         position: LatLng(spot.lat, spot.lng),
@@ -105,20 +118,20 @@ class SpotsProvider extends ChangeNotifier {
 
   void selectSpot(SpotData spot) {
     _selectedSpot = spot;
+    _rebuildMarkers();
     notifyListeners();
   }
 
   void clearSelection() {
     _selectedSpot = null;
+    _rebuildMarkers();
     notifyListeners();
   }
 
   Future<void> _fetchUserLocation() async {
     try {
       _userLocation = await _locationService.getCurrentLocation();
-    } catch (_) {
-      // Silent failure
-    }
+    } catch (_) {}
   }
 
   Future<void> refreshSunData() async {
@@ -128,8 +141,6 @@ class SpotsProvider extends ChangeNotifier {
         _fetchUserLocation(),
       ]);
       notifyListeners();
-    } catch (_) {
-      // Silent refresh failure
-    }
+    } catch (_) {}
   }
 }

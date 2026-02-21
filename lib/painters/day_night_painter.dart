@@ -1,168 +1,199 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../utils/kst_time_helper.dart';
 import '../utils/sun_calculator.dart';
 
 class DayNightPainter extends CustomPainter {
   final double sunLongitude;
   final double sunLatitude;
   final LatLngBounds? visibleBounds;
-
-  static const int _cols = 40;
-  static const int _rows = 20;
+  final SunPeriod period;
+  final bool isSimulating;
 
   DayNightPainter({
     required this.sunLongitude,
     required this.sunLatitude,
     this.visibleBounds,
+    required this.period,
+    this.isSimulating = false,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (visibleBounds == null) return;
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
 
-    final swLat = visibleBounds!.southwest.latitude;
-    final neLat = visibleBounds!.northeast.latitude;
-    var swLng = visibleBounds!.southwest.longitude;
-    var neLng = visibleBounds!.northeast.longitude;
-    if (neLng < swLng) neLng += 360;
+    if (isSimulating) {
+      _paintSimulationMode(canvas, rect, size);
+    } else {
+      _paintKstMode(canvas, rect, size);
+    }
+  }
 
-    // Quick daylight check — skip rendering if entire viewport is bright
-    final checkPoints = [
-      [swLat, swLng], [swLat, neLng],
-      [neLat, swLng], [neLat, neLng],
-      [(swLat + neLat) / 2, (swLng + neLng) / 2],
-      [swLat, (swLng + neLng) / 2],
-      [neLat, (swLng + neLng) / 2],
-      [(swLat + neLat) / 2, swLng],
-      [(swLat + neLat) / 2, neLng],
-    ];
-    bool allDay = true;
-    for (final p in checkPoints) {
-      var lng = p[1];
-      if (lng > 180) lng -= 360;
-      if (SunCalculator.getDarknessAtPointFast(p[0], lng, sunLongitude, sunLatitude) > 0) {
-        allDay = false;
+  // ── KST 시간 기반 모드 ──────────────────────────────────
+  void _paintKstMode(Canvas canvas, Rect rect, Size size) {
+    switch (period) {
+      case SunPeriod.sunrise:
+        _paintKstSunrise(canvas, rect, size);
         break;
-      }
-    }
-    if (allDay) return;
-
-    // Draw vertical gradient strips with overlap for seamless blending
-    final stripWidth = size.width / _cols;
-    final overlap = 2.0;
-
-    for (int col = 0; col < _cols; col++) {
-      final tx = (col + 0.5) / _cols;
-      var lng = swLng + tx * (neLng - swLng);
-      if (lng > 180) lng -= 360;
-
-      final sunSide = _getSunSide(lng);
-
-      final colors = <Color>[];
-      final stops = <double>[];
-
-      for (int row = 0; row <= _rows; row++) {
-        final ty = row / _rows;
-        final lat = neLat - ty * (neLat - swLat);
-
-        final darkness = SunCalculator.getDarknessAtPointFast(
-          lat, lng, sunLongitude, sunLatitude,
-        );
-        colors.add(_getColor(darkness, sunSide));
-        stops.add(ty);
-      }
-
-      final left = (col * stripWidth - overlap).clamp(0.0, size.width);
-      final right = ((col + 1) * stripWidth + overlap).clamp(0.0, size.width);
-      final rect = Rect.fromLTRB(left, 0, right, size.height);
-
-      final gradient = ui.Gradient.linear(
-        const Offset(0, 0),
-        Offset(0, size.height),
-        colors,
-        stops,
-      );
-      canvas.drawRect(rect, Paint()..shader = gradient);
+      case SunPeriod.daytime:
+        _paintKstDaytime(canvas, rect);
+        break;
+      case SunPeriod.sunset:
+        _paintKstSunset(canvas, rect, size);
+        break;
+      case SunPeriod.night:
+        _paintKstNight(canvas, rect, size);
+        break;
     }
   }
 
-  /// Returns -1.0 (sunrise/morning side) to 1.0 (sunset/evening side).
-  double _getSunSide(double lng) {
-    var diff = lng - sunLongitude;
-    if (diff > 180) diff -= 360;
-    if (diff < -180) diff += 360;
-    return (diff / 180).clamp(-1.0, 1.0);
+  void _paintKstSunrise(Canvas canvas, Rect rect, Size size) {
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width / 2, 0),
+          Offset(size.width / 2, size.height),
+          [
+            const Color(0xFFFFB6C1).withValues(alpha: 0.25),
+            const Color(0xFFFFCC80).withValues(alpha: 0.25),
+            const Color(0xFF87CEEB).withValues(alpha: 0.20),
+          ],
+          [0.0, 0.5, 1.0],
+        ),
+    );
+    // East glow
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(size.width, size.height * 0.5),
+          size.width * 0.7,
+          [
+            const Color(0xFFFFD700).withValues(alpha: 0.2),
+            Colors.transparent,
+          ],
+          [0.0, 1.0],
+        ),
+    );
   }
 
-  Color _getColor(double darkness, double sunSide) {
-    if (darkness <= 0.0) return Colors.transparent;
-
-    // Full night — dark navy
-    if (darkness >= 1.0) return const Color.fromRGBO(10, 10, 50, 0.55);
-
-    // Blend factor: 0 = sunrise side, 1 = sunset side
-    final sunsetBlend = ((sunSide + 1) / 2).clamp(0.0, 1.0);
-
-    final sunriseColor = _getSunriseColor(darkness);
-    final sunsetColor = _getSunsetColor(darkness);
-    return Color.lerp(sunriseColor, sunsetColor, sunsetBlend)!;
+  void _paintKstDaytime(Canvas canvas, Rect rect) {
+    canvas.drawRect(
+      rect,
+      Paint()..color = const Color(0xFF87CEEB).withValues(alpha: 0.1),
+    );
   }
 
-  /// Golden/amber tones for the sunrise (dawn) side.
-  Color _getSunriseColor(double darkness) {
-    if (darkness < 0.35) {
-      final t = darkness / 0.35;
-      return Color.fromRGBO(
-        255,
-        (210 - t * 30).toInt(),
-        (120 - t * 50).toInt(),
-        t * 0.22,
-      );
-    } else if (darkness < 0.65) {
-      final t = (darkness - 0.35) / 0.3;
-      return Color.fromRGBO(
-        (255 - t * 40).toInt(),
-        (180 - t * 60).toInt(),
-        (70 - t * 30).toInt(),
-        0.22 + t * 0.12,
+  void _paintKstSunset(Canvas canvas, Rect rect, Size size) {
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width / 2, 0),
+          Offset(size.width / 2, size.height),
+          [
+            const Color(0xFF8B5CF6).withValues(alpha: 0.30),
+            const Color(0xFFFF6B6B).withValues(alpha: 0.28),
+            const Color(0xFFFF9500).withValues(alpha: 0.30),
+          ],
+          [0.0, 0.5, 1.0],
+        ),
+    );
+    // West glow
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(0, size.height * 0.5),
+          size.width * 0.7,
+          [
+            const Color(0xFFFFB347).withValues(alpha: 0.25),
+            Colors.transparent,
+          ],
+          [0.0, 1.0],
+        ),
+    );
+    // East darker
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width * 0.6, 0),
+          Offset(size.width, 0),
+          [Colors.transparent, const Color(0xFF0d1b2a).withValues(alpha: 0.2)],
+        ),
+    );
+  }
+
+  void _paintKstNight(Canvas canvas, Rect rect, Size size) {
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width / 2, 0),
+          Offset(size.width / 2, size.height),
+          [
+            const Color(0xFF0d1b2a).withValues(alpha: 0.4),
+            const Color(0xFF2d1b4e).withValues(alpha: 0.35),
+          ],
+          [0.0, 1.0],
+        ),
+    );
+  }
+
+  // ── 시뮬레이션(타임랩스) 모드 ─────────────────────────
+  void _paintSimulationMode(Canvas canvas, Rect rect, Size size) {
+    final centerLat =
+        (visibleBounds!.northeast.latitude + visibleBounds!.southwest.latitude) / 2;
+    final centerLng =
+        (visibleBounds!.northeast.longitude + visibleBounds!.southwest.longitude) / 2;
+
+    final darkness = SunCalculator.getDarknessAtPointFast(
+      centerLat, centerLng, sunLongitude, sunLatitude,
+    );
+
+    var sunDiff = centerLng - sunLongitude;
+    if (sunDiff > 180) sunDiff -= 360;
+    if (sunDiff < -180) sunDiff += 360;
+
+    if (darkness <= 0.05) {
+      _paintKstDaytime(canvas, rect);
+    } else if (darkness >= 0.95) {
+      _paintKstNight(canvas, rect, size);
+    } else if (sunDiff > 0) {
+      final opacity = (0.4 * darkness).clamp(0.05, 0.4);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(size.width / 2, 0),
+            Offset(size.width / 2, size.height),
+            [
+              Color(0xFF8B5CF6).withValues(alpha: opacity),
+              Color(0xFFFF6B6B).withValues(alpha: opacity),
+              Color(0xFFFF9500).withValues(alpha: opacity),
+            ],
+            [0.0, 0.5, 1.0],
+          ),
       );
     } else {
-      final t = (darkness - 0.65) / 0.35;
-      return Color.fromRGBO(
-        (215 - t * 205).toInt(),
-        (120 - t * 110).toInt(),
-        (40 + t * 10).toInt(),
-        0.34 + t * 0.21,
-      );
-    }
-  }
-
-  /// Purple/violet tones for the sunset (dusk) side.
-  Color _getSunsetColor(double darkness) {
-    if (darkness < 0.35) {
-      final t = darkness / 0.35;
-      return Color.fromRGBO(
-        (180 + t * 40).toInt(),
-        (80 - t * 30).toInt(),
-        (180 + t * 40).toInt(),
-        t * 0.22,
-      );
-    } else if (darkness < 0.65) {
-      final t = (darkness - 0.35) / 0.3;
-      return Color.fromRGBO(
-        (220 - t * 60).toInt(),
-        (50 - t * 20).toInt(),
-        (220 - t * 30).toInt(),
-        0.22 + t * 0.12,
-      );
-    } else {
-      final t = (darkness - 0.65) / 0.35;
-      return Color.fromRGBO(
-        (160 - t * 150).toInt(),
-        (30 - t * 20).toInt(),
-        (190 - t * 140).toInt(),
-        0.34 + t * 0.21,
+      final opacity = (0.4 * darkness).clamp(0.05, 0.4);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(size.width / 2, 0),
+            Offset(size.width / 2, size.height),
+            [
+              Color(0xFFFFB6C1).withValues(alpha: opacity),
+              Color(0xFFFFCC80).withValues(alpha: opacity),
+              Color(0xFF87CEEB).withValues(alpha: opacity),
+            ],
+            [0.0, 0.5, 1.0],
+          ),
       );
     }
   }
@@ -171,6 +202,8 @@ class DayNightPainter extends CustomPainter {
   bool shouldRepaint(DayNightPainter oldDelegate) {
     return oldDelegate.sunLongitude != sunLongitude ||
         oldDelegate.sunLatitude != sunLatitude ||
-        oldDelegate.visibleBounds != visibleBounds;
+        oldDelegate.visibleBounds != visibleBounds ||
+        oldDelegate.period != period ||
+        oldDelegate.isSimulating != isSimulating;
   }
 }

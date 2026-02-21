@@ -16,6 +16,8 @@ class DayNightOverlay extends StatelessWidget {
               sunLongitude: provider.sunLongitude,
               sunLatitude: provider.sunLatitude,
               visibleBounds: provider.visibleBounds,
+              period: provider.currentPeriod,
+              isSimulating: provider.isSimulating,
             ),
             size: Size.infinite,
           ),
