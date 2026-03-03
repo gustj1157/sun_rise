@@ -8,6 +8,7 @@ import '../providers/sun_status_provider.dart';
 import '../services/location_service.dart';
 import '../widgets/cloud_overlay.dart';
 import '../widgets/day_night_overlay.dart';
+import '../widgets/map_loading_shimmer.dart';
 import '../widgets/spot_detail_sheet.dart';
 import '../widgets/star_overlay.dart';
 import '../widgets/sun_moon_animation.dart';
@@ -28,11 +29,114 @@ class _MapScreenState extends State<MapScreen> {
   double _currentZoom = 11.0;
   bool _showRecommendation = false;
   bool _showTimelapse = false;
+  bool _mapReady = false;
+  bool _errorShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForErrors();
+    });
+  }
 
   @override
   void dispose() {
     _mapController?.dispose();
     super.dispose();
+  }
+
+  void _checkForErrors() {
+    final provider = context.read<SpotsProvider>();
+    if (provider.error != null && !_errorShown) {
+      _errorShown = true;
+      _showErrorSnackBar('일부 데이터를 불러오지 못했어요. 새로고침을 시도해보세요.');
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2C2C2C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: '새로고침',
+          textColor: Colors.orange,
+          onPressed: () => _handleRefresh(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleRefresh() async {
+    final provider = context.read<SpotsProvider>();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Colors.orange.withValues(alpha: 0.8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('데이터를 새로 불러오는 중...', style: TextStyle(fontSize: 13)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2C2C2C),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+        duration: const Duration(seconds: 10),
+      ),
+    );
+
+    await provider.refreshSunData();
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (provider.error != null) {
+      _showErrorSnackBar('일출/일몰 시간을 가져오지 못했어요. 인터넷 연결을 확인해주세요.');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 18),
+              SizedBox(width: 10),
+              Text('최신 데이터로 업데이트되었어요!', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+          backgroundColor: const Color(0xFF2C2C2C),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _goToCurrentLocation() async {
@@ -44,6 +148,8 @@ class _MapScreenState extends State<MapScreen> {
           12,
         ),
       );
+    } else if (mounted) {
+      _showErrorSnackBar('현재 위치를 가져올 수 없어요. 위치 권한을 확인해주세요.');
     }
   }
 
@@ -87,10 +193,10 @@ class _MapScreenState extends State<MapScreen> {
             Icon(Icons.wb_sunny_rounded, color: AppTheme.sunriseOrange, size: 22),
             const SizedBox(width: 8),
             const Text(
-              'SunTime',
+              'SUNRISE',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1,
+                letterSpacing: 2,
               ),
             ),
           ],
@@ -133,9 +239,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              context.read<SpotsProvider>().refreshSunData();
-            },
+            onPressed: _handleRefresh,
             tooltip: '새로고침',
           ),
         ],
@@ -144,6 +248,12 @@ class _MapScreenState extends State<MapScreen> {
         builder: (context, spotsProvider, _) {
           return Stack(
             children: [
+              // (0) Map loading shimmer
+              if (!_mapReady)
+                const Positioned.fill(
+                  child: MapLoadingShimmer(),
+                ),
+
               // (1) Google Map
               GoogleMap(
                 initialCameraPosition: AppTheme.kKoreaCenter,
@@ -155,6 +265,9 @@ class _MapScreenState extends State<MapScreen> {
                 compassEnabled: true,
                 onMapCreated: (controller) {
                   _mapController = controller;
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    if (mounted) setState(() => _mapReady = true);
+                  });
                   Future.delayed(
                     const Duration(milliseconds: 300),
                     _updateVisibleBounds,

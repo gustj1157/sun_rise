@@ -21,7 +21,7 @@ class SunTimeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SunStatusProvider()),
       ],
       child: MaterialApp(
-        title: 'SunTime Korea',
+        title: 'SUNRISE',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: const SplashScreen(),

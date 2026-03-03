@@ -10,6 +10,7 @@ class DayNightPainter extends CustomPainter {
   final LatLngBounds? visibleBounds;
   final SunPeriod period;
   final bool isSimulating;
+  final double glowAnimation;
 
   DayNightPainter({
     required this.sunLongitude,
@@ -17,6 +18,7 @@ class DayNightPainter extends CustomPainter {
     this.visibleBounds,
     required this.period,
     this.isSimulating = false,
+    this.glowAnimation = 0.0,
   });
 
   @override
@@ -36,12 +38,14 @@ class DayNightPainter extends CustomPainter {
     switch (period) {
       case SunPeriod.sunrise:
         _paintKstSunrise(canvas, rect, size);
+        _paintEdgeGlow(canvas, size, isSunrise: true);
         break;
       case SunPeriod.daytime:
         _paintKstDaytime(canvas, rect);
         break;
       case SunPeriod.sunset:
         _paintKstSunset(canvas, rect, size);
+        _paintEdgeGlow(canvas, size, isSunrise: false);
         break;
       case SunPeriod.night:
         _paintKstNight(canvas, rect, size);
@@ -144,6 +148,74 @@ class DayNightPainter extends CustomPainter {
     );
   }
 
+  // ── Edge glow 애니메이션 (일출/일몰 다가오는 중) ──────────
+  void _paintEdgeGlow(Canvas canvas, Size size, {required bool isSunrise}) {
+    final pulseAlpha = 0.08 + glowAnimation * 0.14; // 0.08 ~ 0.22
+    final pulseRadius = size.width * (0.5 + glowAnimation * 0.25); // 50%~75%
+
+    if (isSunrise) {
+      // 동쪽 가장자리에서 빛이 번지는 효과
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(size.width + size.width * 0.05, size.height * 0.4),
+            pulseRadius,
+            [
+              Color(0xFFFFD700).withValues(alpha: pulseAlpha),
+              Color(0xFFFF9500).withValues(alpha: pulseAlpha * 0.5),
+              Colors.transparent,
+            ],
+            [0.0, 0.5, 1.0],
+          ),
+      );
+      // 상단 핑크빛 번짐
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(size.width * 0.8, 0),
+            size.height * (0.4 + glowAnimation * 0.15),
+            [
+              Color(0xFFFFB6C1).withValues(alpha: pulseAlpha * 0.6),
+              Colors.transparent,
+            ],
+            [0.0, 1.0],
+          ),
+      );
+    } else {
+      // 서쪽 가장자리에서 빛이 번지는 효과
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(-size.width * 0.05, size.height * 0.4),
+            pulseRadius,
+            [
+              Color(0xFFFF6B6B).withValues(alpha: pulseAlpha),
+              Color(0xFF8B5CF6).withValues(alpha: pulseAlpha * 0.5),
+              Colors.transparent,
+            ],
+            [0.0, 0.5, 1.0],
+          ),
+      );
+      // 하단 보라빛 번짐
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(size.width * 0.2, size.height),
+            size.height * (0.4 + glowAnimation * 0.15),
+            [
+              Color(0xFFA855F7).withValues(alpha: pulseAlpha * 0.6),
+              Colors.transparent,
+            ],
+            [0.0, 1.0],
+          ),
+      );
+    }
+  }
+
   // ── 시뮬레이션(타임랩스) 모드 ─────────────────────────
   void _paintSimulationMode(Canvas canvas, Rect rect, Size size) {
     final centerLat =
@@ -204,6 +276,7 @@ class DayNightPainter extends CustomPainter {
         oldDelegate.sunLatitude != sunLatitude ||
         oldDelegate.visibleBounds != visibleBounds ||
         oldDelegate.period != period ||
-        oldDelegate.isSimulating != isSimulating;
+        oldDelegate.isSimulating != isSimulating ||
+        oldDelegate.glowAnimation != glowAnimation;
   }
 }
